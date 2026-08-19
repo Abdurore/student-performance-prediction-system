@@ -17,9 +17,9 @@ from sqlmodel import Session, select
 from app.models import ModelRegistry
 from ml import train as train_module
 from ml.train import (
-    _build_pipeline,
+    build_pipeline,
     _check_leakage_threshold,
-    _temporal_holdout_indices,
+    temporal_holdout_indices,
     persist_task_results,
     train_task,
 )
@@ -29,14 +29,14 @@ def test_temporal_holdout_splits_on_the_most_recent_session() -> None:
     sessions = pd.Series(
         ["2019/2020", "2019/2020", "2020/2021", "2021/2022", "2021/2022"]
     )
-    train_idx, test_idx = _temporal_holdout_indices(sessions)
+    train_idx, test_idx = temporal_holdout_indices(sessions)
     assert set(train_idx) == {0, 1, 2}
     assert set(test_idx) == {3, 4}
 
 
 def test_build_pipeline_uses_smote_only_when_requested() -> None:
-    with_smote = _build_pipeline("classification", "logistic_regression", ["a"], [], use_smote=True)
-    without_smote = _build_pipeline("classification", "logistic_regression", ["a"], [], use_smote=False)
+    with_smote = build_pipeline("classification", "logistic_regression", ["a"], [], use_smote=True)
+    without_smote = build_pipeline("classification", "logistic_regression", ["a"], [], use_smote=False)
     assert isinstance(with_smote, ImbPipeline)
     assert "smote" in dict(with_smote.steps)
     assert isinstance(without_smote, SkPipeline)

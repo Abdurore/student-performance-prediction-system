@@ -59,7 +59,7 @@ from ml.config import (
     TASK_KIND,
     TEMPORAL_HOLDOUT_SESSIONS,
 )
-from ml.features import assert_no_leakage, build_course_score_features, build_semester_features
+from ml.features import assert_no_leakage, build_course_score_features, build_semester_features, column_types
 from ml.preprocessing import build_preprocessing_pipeline, load_raw_tables
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -109,7 +109,7 @@ def _build_estimator(task_kind: str, algo_key: str) -> object:
     return cls(**kwargs)
 
 
-def _build_pipeline(
+def build_pipeline(
     task_kind: str, algo_key: str, numeric_cols: list[str], categorical_cols: list[str], use_smote: bool
 ) -> ImbPipeline | SkPipeline:
     """Build a fresh, unfitted pipeline -- called separately for CV tuning and the
@@ -127,13 +127,7 @@ def _build_pipeline(
     return SkPipeline(steps=[("preprocess", preprocessor), ("model", estimator)])
 
 
-def _column_types(X: pd.DataFrame) -> tuple[list[str], list[str]]:
-    categorical = [c for c in X.columns if X[c].dtype == object]
-    numeric = [c for c in X.columns if c not in categorical]
-    return numeric, categorical
-
-
-def _temporal_holdout_indices(sessions: pd.Series) -> tuple[np.ndarray, np.ndarray]:
+def temporal_holdout_indices(sessions: pd.Series) -> tuple[np.ndarray, np.ndarray]:
     """Row indices for (train on earlier sessions, test on the most recent one(s))."""
     years = sessions.str.slice(0, 4).astype(int)
     cutoff = sorted(years.unique())[-TEMPORAL_HOLDOUT_SESSIONS]
@@ -178,7 +172,7 @@ def _train_one_algorithm(
     use_smote: bool,
     param_grid: dict,
 ) -> dict:
-    pipeline = _build_pipeline(task_kind, algo_key, numeric_cols, categorical_cols, use_smote)
+    pipeline = build_pipeline(task_kind, algo_key, numeric_cols, categorical_cols, use_smote)
 
     scoring = "f1_macro" if task_kind == "classification" else "r2"
     started = time.perf_counter()
@@ -210,7 +204,7 @@ def _train_one_algorithm(
 
     # Temporal holdout: refit fresh on earlier sessions only, test on the most recent.
     train_idx, test_idx = temporal_idx
-    temporal_pipeline = _build_pipeline(task_kind, algo_key, numeric_cols, categorical_cols, use_smote)
+    temporal_pipeline = build_pipeline(task_kind, algo_key, numeric_cols, categorical_cols, use_smote)
     temporal_pipeline.set_params(**search.best_params_)
     temporal_pipeline.fit(X.iloc[train_idx], y.iloc[train_idx])
     if task_kind == "classification":
@@ -256,7 +250,7 @@ def train_task(task: str) -> list[dict]:
         y = y_df["risk_label"] if task == "risk_classification" else y_df["target_gpa"]
 
     assert_no_leakage(X, task)
-    numeric_cols, categorical_cols = _column_types(X)
+    numeric_cols, categorical_cols = column_types(X)
     groups = meta["student_id"]
     sessions = meta["session"]
 
@@ -266,7 +260,7 @@ def train_task(task: str) -> list[dict]:
     else:
         cv = GroupKFold(n_splits=n_splits)
     cv_splits = list(cv.split(X, y, groups))
-    temporal_idx = _temporal_holdout_indices(sessions)
+    temporal_idx = temporal_holdout_indices(sessions)
 
     grids = dict(CLASSIFICATION_PARAM_GRIDS if task_kind == "classification" else REGRESSION_PARAM_GRIDS)
     if len(X) >= LARGE_TASK_ROW_THRESHOLD and "svm" in grids:

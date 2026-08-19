@@ -29,6 +29,17 @@ class LeakageError(ValueError):
     """Raised when a feature table contains a target-outcome column it must not."""
 
 
+def column_types(X: pd.DataFrame) -> tuple[list[str], list[str]]:
+    """Split a feature table into (numeric, categorical) column names.
+
+    Shared by preprocessing/training and explainability so both agree on
+    which columns get one-hot encoded vs. scaled.
+    """
+    categorical = [c for c in X.columns if X[c].dtype == object]
+    numeric = [c for c in X.columns if c not in categorical]
+    return numeric, categorical
+
+
 def assert_no_leakage(feature_df: pd.DataFrame, task: str) -> None:
     """Raise LeakageError if any column forbidden for `task` is present.
 
