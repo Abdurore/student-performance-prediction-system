@@ -9,6 +9,7 @@ import { InterventionsList } from '@/pages/interventions/InterventionsList'
 import { AnalyticsPage } from '@/pages/analytics/AnalyticsPage'
 import { ModelsPage } from '@/pages/models/ModelsPage'
 import { ProfilePage } from '@/pages/profile/ProfilePage'
+import { PredictPage } from '@/pages/predict/PredictPage'
 
 export function App() {
   return (
@@ -23,6 +24,7 @@ export function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route element={<ProtectedRoute allowedRoles={['admin', 'lecturer', 'adviser']} />}>
             <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/predict" element={<PredictPage />} />
           </Route>
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/models" element={<ModelsPage />} />

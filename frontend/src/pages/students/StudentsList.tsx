@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { keepPreviousData } from '@tanstack/react-query'
-import { Search, Users } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Search, Target, Users } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { getStudents } from '@/lib/endpoints'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useAuth } from '@/hooks/useAuth'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -16,11 +17,16 @@ const RISK_TIERS: RiskTier[] = ['low', 'moderate', 'high', 'critical']
 const PAGE_SIZE = 20
 
 export function StudentsList() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const canBatchPredict = user?.role === 'admin' || user?.role === 'lecturer' || user?.role === 'adviser'
+
   const [search, setSearch] = useState('')
   const [level, setLevel] = useState<string>('')
   const [riskTier, setRiskTier] = useState<string>('')
   const [department, setDepartment] = useState('')
   const [page, setPage] = useState(1)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
 
   const debouncedSearch = useDebouncedValue(search, 300)
   const debouncedDepartment = useDebouncedValue(department, 300)
@@ -46,6 +52,34 @@ export function StudentsList() {
       setter(v)
       setPage(1)
     }
+  }
+
+  function toggleSelected(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const pageIds = students.data?.items.map((s) => s.id) ?? []
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id))
+
+  function toggleSelectAllOnPage() {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allOnPageSelected) {
+        pageIds.forEach((id) => next.delete(id))
+      } else {
+        pageIds.forEach((id) => next.add(id))
+      }
+      return next
+    })
+  }
+
+  function handlePredictSelected() {
+    navigate(`/predict?ids=${Array.from(selected).join(',')}`)
   }
 
   return (
@@ -109,6 +143,29 @@ export function StudentsList() {
         </div>
       </div>
 
+      {canBatchPredict && selected.size > 0 && (
+        <div className="card flex items-center justify-between p-3">
+          <p className="text-sm text-slate-600">{selected.size} student{selected.size === 1 ? '' : 's'} selected</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-navy-900 hover:bg-slate-100"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={handlePredictSelected}
+              className="flex items-center gap-2 rounded-md bg-navy-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-navy-700"
+            >
+              <Target size={14} />
+              Predict selected
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="card p-5">
         {students.isLoading && <CardSkeleton rows={8} />}
         {students.isError && <ErrorState onRetry={() => students.refetch()} message="Could not load students." />}
@@ -121,6 +178,11 @@ export function StudentsList() {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="text-xs uppercase tracking-wide text-slate-400">
+                      {canBatchPredict && (
+                        <th className="w-8 pb-2">
+                          <input type="checkbox" checked={allOnPageSelected} onChange={toggleSelectAllOnPage} />
+                        </th>
+                      )}
                       <th className="pb-2">Student</th>
                       <th className="pb-2">Department</th>
                       <th className="pb-2">Level</th>
@@ -131,6 +193,15 @@ export function StudentsList() {
                   <tbody className="divide-y divide-slate-100">
                     {students.data.items.map((student) => (
                       <tr key={student.id}>
+                        {canBatchPredict && (
+                          <td className="py-2">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(student.id)}
+                              onChange={() => toggleSelected(student.id)}
+                            />
+                          </td>
+                        )}
                         <td className="py-2">
                           <Link to={`/students/${student.id}`} className="font-medium text-navy-900 hover:text-amber-600">
                             {student.first_name} {student.last_name}

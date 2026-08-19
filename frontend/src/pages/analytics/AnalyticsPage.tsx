@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Download, Loader2 } from 'lucide-react'
-import { downloadAtRiskReport, getCorrelations, getCourseDifficulty } from '@/lib/endpoints'
+import { downloadAtRiskReport, getCorrelations, getCourseDifficulty, getTrends } from '@/lib/endpoints'
 import { triggerBlobDownload } from '@/lib/download'
 import { ApiError } from '@/lib/api'
 import { CardSkeleton, Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { CorrelationHeatmap } from '@/components/analytics/CorrelationHeatmap'
 
 export function AnalyticsPage() {
+  const trends = useQuery({ queryKey: ['analytics', 'trends'], queryFn: getTrends })
   const correlations = useQuery({ queryKey: ['analytics', 'correlations'], queryFn: getCorrelations })
   const courseDifficulty = useQuery({ queryKey: ['analytics', 'course-difficulty'], queryFn: getCourseDifficulty })
 
@@ -50,6 +53,28 @@ export function AnalyticsPage() {
       {downloadError && <p className="text-sm text-[#B91C1C]">{downloadError}</p>}
 
       <div className="card p-5">
+        <h2 className="mb-4 text-sm font-semibold text-navy-900">GPA trend by session</h2>
+        {trends.isLoading && <Skeleton className="h-64 w-full" />}
+        {trends.isError && <ErrorState onRetry={() => trends.refetch()} message="Could not load session trends." />}
+        {trends.data &&
+          (trends.data.points.length === 0 ? (
+            <EmptyState title="No session history yet" guidance="GPA trends appear once students have completed at least one session." />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={trends.data.points}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis dataKey="session" tick={{ fontSize: 12 }} />
+                <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="average_gpa" name="Avg GPA" stroke="#0F2038" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="average_cgpa" name="Avg CGPA" stroke="#D97706" strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ))}
+      </div>
+
+      <div className="card p-5">
         <h2 className="mb-4 text-sm font-semibold text-navy-900">Feature correlations</h2>
         {correlations.isLoading && <Skeleton className="h-64 w-full" />}
         {correlations.isError && <ErrorState onRetry={() => correlations.refetch()} message="Could not load correlations." />}
@@ -63,7 +88,17 @@ export function AnalyticsPage() {
           <ErrorState onRetry={() => courseDifficulty.refetch()} message="Could not load course difficulty." />
         )}
         {courseDifficulty.data && (
-          <div className="overflow-x-auto">
+          <>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={sortedCourses.slice(0, 15)}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis dataKey="course_code" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" interval={0} height={60} />
+                <YAxis tickFormatter={(v) => `${Math.round(v * 100)}%`} tick={{ fontSize: 12 }} />
+                <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
+                <Bar dataKey="failure_rate" name="Failure rate" fill="#EA580C" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wide text-slate-400">
@@ -92,7 +127,8 @@ export function AnalyticsPage() {
             {sortedCourses.length > 15 && (
               <p className="mt-3 text-xs text-slate-500">Showing the 15 hardest courses of {sortedCourses.length}, ranked by failure rate.</p>
             )}
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>

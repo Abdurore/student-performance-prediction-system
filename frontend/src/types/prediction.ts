@@ -56,3 +56,18 @@ export interface AtRiskResponse {
   items: AtRiskItem[]
   total: number
 }
+
+export interface BatchPredictionRow {
+  student_id: number
+  matric_no: string
+  risk_tier: RiskTier | null
+  probability: number | null
+  predicted_gpa: number | null
+  error: string | null
+}
+
+export interface BatchPredictionResponse {
+  total_requested: number
+  total_succeeded: number
+  results: BatchPredictionRow[]
+}

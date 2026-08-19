@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, Cpu, GraduationCap, LayoutDashboard, LogOut, User, Users } from 'lucide-react'
+import { BarChart3, ClipboardList, Cpu, GraduationCap, LayoutDashboard, LogOut, Target, User, Users } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import type { UserRole } from '@/types/auth'
@@ -15,6 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: LayoutDashboard, end: true },
   { label: 'Students', to: '/students', icon: Users },
   { label: 'Interventions', to: '/interventions', icon: ClipboardList },
+  { label: 'Predict', to: '/predict', icon: Target, roles: ['admin', 'lecturer', 'adviser'] },
   { label: 'Analytics', to: '/analytics', icon: BarChart3, roles: ['admin', 'lecturer', 'adviser'] },
   { label: 'Models', to: '/models', icon: Cpu, roles: ['admin'] },
   { label: 'Profile', to: '/profile', icon: User },

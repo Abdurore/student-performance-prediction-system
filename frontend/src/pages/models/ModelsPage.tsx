@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, Loader2, RotateCw, ShieldCheck } from 'lucide-react'
-import { activateModel, getModelComparison, getModelFairness, retrainModels } from '@/lib/endpoints'
+import { AlertTriangle, BarChart3, CheckCircle2, Loader2, RotateCw, ShieldCheck } from 'lucide-react'
+import { activateModel, getModelComparison, getModelFairness, getModels, retrainModels } from '@/lib/endpoints'
 import { ApiError } from '@/lib/api'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { FairnessReport } from '@/components/models/FairnessReport'
+import { ModelDiagnostics } from '@/components/models/ModelDiagnostics'
 import type { ModelComparisonRow } from '@/types/model'
 
 const TASKS = [
@@ -18,9 +19,10 @@ function versionFor(row: ModelComparisonRow): string {
   return `${row.task}__${row.algorithm}`
 }
 
-function ComparisonRow({ row }: { row: ModelComparisonRow }) {
+function ComparisonRow({ row, metrics }: { row: ModelComparisonRow; metrics: Record<string, unknown> | undefined }) {
   const queryClient = useQueryClient()
   const [showFairness, setShowFairness] = useState(false)
+  const [showDiagnostics, setShowDiagnostics] = useState(false)
 
   const activateMutation = useMutation({
     mutationFn: () => activateModel(versionFor(row)),
@@ -73,14 +75,24 @@ function ComparisonRow({ row }: { row: ModelComparisonRow }) {
           )}
         </td>
         <td className="py-2">
-          <button
-            type="button"
-            onClick={() => setShowFairness((v) => !v)}
-            className="flex items-center gap-1 text-xs font-medium text-navy-900 hover:text-amber-600"
-          >
-            <ShieldCheck size={13} />
-            {showFairness ? 'Hide' : 'Fairness'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowFairness((v) => !v)}
+              className="flex items-center gap-1 text-xs font-medium text-navy-900 hover:text-amber-600"
+            >
+              <ShieldCheck size={13} />
+              {showFairness ? 'Hide' : 'Fairness'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDiagnostics((v) => !v)}
+              className="flex items-center gap-1 text-xs font-medium text-navy-900 hover:text-amber-600"
+            >
+              <BarChart3 size={13} />
+              {showDiagnostics ? 'Hide' : 'Diagnostics'}
+            </button>
+          </div>
         </td>
       </tr>
       {showFairness && (
@@ -98,12 +110,21 @@ function ComparisonRow({ row }: { row: ModelComparisonRow }) {
           </td>
         </tr>
       )}
+      {showDiagnostics && (
+        <tr>
+          <td colSpan={7} className="bg-slate-50 px-3 py-4">
+            {metrics ? <ModelDiagnostics metrics={metrics} /> : <p className="text-sm text-slate-500">No metrics available.</p>}
+          </td>
+        </tr>
+      )}
     </>
   )
 }
 
 export function ModelsPage() {
   const comparison = useQuery({ queryKey: ['models', 'comparison'], queryFn: getModelComparison })
+  const registry = useQuery({ queryKey: ['models', 'registry'], queryFn: getModels })
+  const metricsByVersion = new Map((registry.data ?? []).map((m) => [m.version, m.metrics]))
   const queryClient = useQueryClient()
   const [selectedTasks, setSelectedTasks] = useState<string[]>([])
 
@@ -177,7 +198,7 @@ export function ModelsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {comparison.data.rows.map((row) => (
-                  <ComparisonRow key={`${row.task}-${row.algorithm}`} row={row} />
+                  <ComparisonRow key={`${row.task}-${row.algorithm}`} row={row} metrics={metricsByVersion.get(versionFor(row))} />
                 ))}
               </tbody>
             </table>
