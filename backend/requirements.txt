@@ -19,4 +19,5 @@ imbalanced-learn==0.13.0
 matplotlib==3.10.0
 reportlab==4.2.5
 pytest==8.3.4
+pytest-cov==7.1.0
 httpx==0.28.1

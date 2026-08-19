@@ -1,7 +1,7 @@
 import { api } from './api'
 import type { TokenResponse, UserProfile } from '@/types/auth'
 import type { CorrelationsResponse, CourseDifficultyResponse, OverviewResponse, TrendsResponse } from '@/types/analytics'
-import type { AtRiskResponse, StudentPredictionResponse } from '@/types/prediction'
+import type { AtRiskResponse, BatchPredictionResponse, StudentPredictionResponse } from '@/types/prediction'
 import type { Course, PaginatedStudents, StudentProfile } from '@/types/student'
 import type { InterventionRead } from '@/types/intervention'
 import type { ModelComparisonResponse, ModelRegistryRead, RetrainResponse } from '@/types/model'
@@ -56,6 +56,10 @@ export function getAtRisk(tier?: string): Promise<AtRiskResponse> {
 
 export function predictStudent(studentId: number): Promise<StudentPredictionResponse> {
   return api.post<StudentPredictionResponse>(`/predictions/student/${studentId}`)
+}
+
+export function predictBatch(studentIds: number[]): Promise<BatchPredictionResponse> {
+  return api.post<BatchPredictionResponse>('/predictions/batch', { student_ids: studentIds })
 }
 
 export function getInterventions(studentId?: number): Promise<InterventionRead[]> {

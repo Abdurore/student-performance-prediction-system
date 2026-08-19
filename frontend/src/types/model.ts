@@ -32,3 +32,24 @@ export interface RetrainResponse {
   status: string
   message: string
 }
+
+export interface ClassificationMetrics {
+  accuracy: number
+  precision_macro: number
+  recall_macro: number
+  f1_macro: number
+  roc_auc: number
+  pr_auc: number
+  confusion_matrix: number[][]
+  roc_curve: { fpr: number[]; tpr: number[] }
+  calibration_curve: { prob_true: number[]; prob_pred: number[] }
+}
+
+export interface RegressionMetrics {
+  mae: number
+  rmse: number
+  r2: number
+  mape: number
+  residual_plot_data: { y_true: number[]; residual: number[] }
+  predicted_vs_actual_data: { y_true: number[]; y_pred: number[] }
+}

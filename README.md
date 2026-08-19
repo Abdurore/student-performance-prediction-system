@@ -4,7 +4,7 @@ Offline-first university project for early performance-risk prediction, GPA fore
 
 ## Current status
 
-Phases 0-7 are complete:
+Phases 0-9 are complete:
 
 - Project scaffolding, central academic configuration, dependency manifests, and a FastAPI health endpoint (Phase 0).
 - SQLModel tables for every entity in the data model, Alembic migrations, a causally-coherent synthetic data generator (1,200 students across 6 sessions), database seeding, and CSV import for real institutional data with row-level validation (Phase 1).
@@ -14,8 +14,11 @@ Phases 0-7 are complete:
 - A FastAPI backend (all endpoints under `/api/v1`, documented at `/docs`) with JWT auth and role-based access enforced as a shared dependency plus row-level scoping in the service layer (admin sees everything; a lecturer only students in courses they teach; an adviser only their assigned students; a student only themself, read-only). Every prediction endpoint serves real inference from the active trained artifacts -- never mocked -- including per-student SHAP explanations, with Section I's ethical constraint (a student's own explanation panel shows only actionable factors, in forward-looking language, never a bare "predicted to fail") enforced server-side. Also: student CRUD/CSV import, course/enrolment/attendance management with automatic grade recomputation, live analytics (dashboard overview, GPA trends, feature correlations, course difficulty), model registry/comparison/activation/retraining, intervention tracking, and PDF reports via reportlab (Phase 5).
 
 - A React/TypeScript/Tailwind frontend (`frontend/`) served at `http://localhost:5173` in dev: JWT auth with visible demo credentials per role, a role-aware dashboard (institution overview for admins, class risk for lecturers, caseload-by-urgency for advisers, and an outlook with forward-looking, non-alarmist focus areas for students), a searchable/paginated student directory with on-demand predictions and PDF reports, intervention logging and status tracking, institution analytics (feature correlations, course difficulty), and admin model management (comparison, fairness audits, activation, retraining) (Phases 6-7).
+- A `/predict` page (single-student search-and-predict, plus a batch CSV-upload tab with template download, client-side validation, and a results table against `POST /predictions/batch`), bulk-select-to-predict on the student directory, session-trend and course-difficulty charts on the analytics page, and per-model diagnostics on the models page -- confusion matrix, ROC curve, and calibration curve for classification; predicted-vs-actual and residual scatter for regression -- all from real persisted metrics (Phase 8).
 
-See `docs/known-issues.md` for deferred cleanup items (currently: the frontend has no ESLint config).
+- Full documentation set: `docs/architecture.md` (tech stack, ERD, prediction data-flow, use-case diagram, design decisions), `docs/api.md` (every endpoint with its role requirement), `docs/user-manual.md` (per-role screen-by-screen guide), `docs/installation.md` (clean-machine setup + troubleshooting), `docs/demo-script.md` (timed 8-minute walkthrough + 12 examiner questions). A measured backend+frontend test suite: 124 backend tests (~88.5% coverage across `app/services/` + `ml/`, up from an unmeasured baseline), 35 frontend tests (vitest + React Testing Library) covering the CSV batch-upload parser, the typed API client's error handling, auth/role route-guarding, and the login page's demo-credential flow (Phase 9).
+
+See `docs/known-issues.md` for deferred cleanup items and honest scope limits found while building Phases 8-9 (currently: the frontend has no ESLint config; `predict_batch` never computes `predicted_gpa`; a GPA histogram/attendance-scatter/level-comparison chart has no backing data in the locked API contract).
 
 Run `make seed` to (re)generate the synthetic dataset and load it into the database. It prints a calibration report and a verification report (correlation matrix, grade-classification distribution, missingness rates) so the seeded data's coherence can be checked without opening the database.
 

@@ -16,6 +16,26 @@ the last build phase rather than mid-build.
   devDependencies plus a `frontend/eslint.config.js` targeting
   `**/*.{ts,tsx}`.
 
+- **`POST /predictions/batch` never populates `predicted_gpa`.** The
+  `BatchPredictionRow` schema advertises a `predicted_gpa` field, but
+  `predict_batch` in `app/api/v1/predictions.py` only ever calls
+  `bulk_risk_scores` and builds every row with `predicted_gpa=None`; there is
+  no GPA-regression path in the batch endpoint at all (unlike
+  `POST /predictions/student/{id}`, which returns risk, GPA, and course-score
+  predictions together). The frontend batch-upload results table renders this
+  honestly as "—" rather than inventing a value. Fixing it means adding a GPA
+  inference call inside `predict_batch`, mirroring `predict_student`.
+- **Analytics spec wishlist not fully backed by the locked API contract.**
+  Section I asks `/analytics` for a GPA histogram, an attendance-vs-performance
+  scatter with a regression line, and a level comparison chart. Section H's
+  locked endpoint list (`/analytics/overview`, `/trends`, `/correlations`,
+  `/course-difficulty`) has no per-student/per-enrolment granular data to back
+  these honestly — building them would mean either fetching full profiles for
+  all ~1,200 students client-side (impractical against this backend) or adding
+  new backend aggregation endpoints, which is beyond a frontend-only phase.
+  Built instead: a session-trends line chart and course-difficulty bar chart,
+  both backed by real existing endpoints. Flagged rather than faked.
+
 ## Fixed during Phase 6 (kept here as a record, no action needed)
 
 - Lecturer dashboard's "Class risk" table rendered all scoped at-risk
