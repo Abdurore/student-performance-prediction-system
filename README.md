@@ -4,15 +4,18 @@ Offline-first university project for early performance-risk prediction, GPA fore
 
 ## Current status
 
-Phases 0-2 are complete:
+Phases 0-3 are complete:
 
 - Project scaffolding, central academic configuration, dependency manifests, and a FastAPI health endpoint (Phase 0).
 - SQLModel tables for every entity in the data model, Alembic migrations, a causally-coherent synthetic data generator (1,200 students across 6 sessions), database seeding, and CSV import for real institutional data with row-level validation (Phase 1).
 - Feature engineering (35+ engineered features across academic history, current performance, attendance, engagement, load/context, and interactions), the data-leakage guard (`ml.features.assert_no_leakage`), and the shared preprocessing pipeline used by every model in Phase 3 (Phase 2).
+- Training and comparison of six algorithms (logistic/linear regression, decision tree, random forest, XGBoost, SVM, MLP) across all three prediction tasks (risk classification, GPA regression, course-score regression), tuned via `GridSearchCV` over shared `StratifiedGroupKFold`/`GroupKFold` splits grouped by student, SMOTE compared with/without for classification, a temporal holdout (train on earlier sessions, test on the most recent), the 96%/0.95 leakage-warning threshold check, and persisted metrics JSON, 300dpi charts, and joblib artifacts mirrored into `model_registry` (Phase 3).
 
-Model training, authentication, and dashboard features remain phase-gated.
+SHAP explainability, the fairness audit, authentication, and dashboard features remain phase-gated.
 
 Run `make seed` to (re)generate the synthetic dataset and load it into the database. It prints a calibration report and a verification report (correlation matrix, grade-classification distribution, missingness rates) so the seeded data's coherence can be checked without opening the database.
+
+Run `make train` to train and compare all six algorithms across all three tasks. It prints a comparison table per task and writes metrics JSON to `backend/ml/artifacts/metrics/`, model artifacts to `backend/ml/artifacts/models/`, and 300dpi charts to `docs/diagrams/`.
 
 ## Prerequisites
 
