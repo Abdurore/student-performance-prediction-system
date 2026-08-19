@@ -1,11 +1,28 @@
-import { GraduationCap, LayoutDashboard, LogOut } from 'lucide-react'
+import { BarChart3, ClipboardList, Cpu, GraduationCap, LayoutDashboard, LogOut, User, Users } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import type { UserRole } from '@/types/auth'
 
-const NAV_ITEMS = [{ label: 'Dashboard', to: '/', icon: LayoutDashboard }]
+interface NavItem {
+  label: string
+  to: string
+  icon: typeof LayoutDashboard
+  end?: boolean
+  roles?: UserRole[]
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard', to: '/', icon: LayoutDashboard, end: true },
+  { label: 'Students', to: '/students', icon: Users },
+  { label: 'Interventions', to: '/interventions', icon: ClipboardList },
+  { label: 'Analytics', to: '/analytics', icon: BarChart3, roles: ['admin', 'lecturer', 'adviser'] },
+  { label: 'Models', to: '/models', icon: Cpu, roles: ['admin'] },
+  { label: 'Profile', to: '/profile', icon: User },
+]
 
 export function Sidebar() {
   const { user, logout } = useAuth()
+  const items = NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
 
   return (
     <aside className="fixed inset-y-0 left-0 flex w-64 flex-col bg-navy-900 text-white">
@@ -20,11 +37,11 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-2">
-        {NAV_ITEMS.map(({ label, to, icon: Icon }) => (
+        {items.map(({ label, to, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
-            end
+            end={end}
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition ${
                 isActive ? 'bg-amber-600 text-white' : 'text-navy-100/80 hover:bg-white/10 hover:text-white'
