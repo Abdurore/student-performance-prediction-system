@@ -1,7 +1,7 @@
 # Student Performance Prediction System
 
 ## Phase status
-Phases 0-5 are complete (DB models/migrations, synthetic data generator/seeding/CSV import, feature engineering + leakage guard + preprocessing, training all six algorithms x three tasks with tuning/metrics/artefacts, SHAP explainability + natural-language layer + fairness audit, FastAPI backend with JWT auth/role permissions/all endpoints serving real predictions). Do not introduce frontend/UI work until its phase is explicitly begun.
+Phases 0-7 are complete (DB models/migrations, synthetic data generator/seeding/CSV import, feature engineering + leakage guard + preprocessing, training all six algorithms x three tasks with tuning/metrics/artefacts, SHAP explainability + natural-language layer + fairness audit, FastAPI backend with JWT auth/role permissions/all endpoints serving real predictions, and a React/TypeScript frontend covering auth, role-aware dashboards, students, interventions, analytics, and model administration). See `docs/known-issues.md` for deferred cleanup items.
 
 ## Design rules
 - Keep all academic rules in `backend/app/core/academic_config.py`.
