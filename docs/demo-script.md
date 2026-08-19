@@ -54,8 +54,11 @@ and show the results table — including a row that legitimately errors
 ("No ongoing enrolment") rather than being silently dropped.
 
 **5:00 – 5:45 — Analytics**
-Feature-correlation heatmap, course-difficulty ranking. "Every chart here
-comes from a live endpoint — nothing in this page is a static image."
+Feature-correlation heatmap, course-difficulty ranking, GPA distribution
+histogram, attendance-vs-performance scatter with its fitted regression
+line, and the level comparison chart (GPA/CGPA and risk-tier mix across
+Levels 100–500). "Every chart here comes from a live endpoint — nothing in
+this page is a static image."
 
 **5:45 – 6:45 — Models: comparison, fairness, diagnostics**
 Models page: point at the six-algorithm comparison table for one task,
@@ -176,13 +179,12 @@ an empty one) on first run, per the brief's "never demo against an empty
 application" constraint.
 
 **12. What's the biggest known limitation?**
-Two, both documented rather than hidden: the batch-prediction endpoint
-computes risk classification but not the GPA regressor, so its results
-table honestly shows GPA as unavailable per row rather than a wrong number;
-and the analytics page's feature-correlation and course-difficulty views
-are backed by real endpoints, but the spec's wish list also named a GPA
-histogram and an attendance-vs-performance scatter that would need new
-backend aggregation endpoints — building those wasn't judged in scope for
-a frontend-only phase without a data source already defined for them, so
-they were flagged in `docs/known-issues.md` rather than faked with
-plausible-looking numbers.
+Documented rather than hidden: `docs/known-issues.md` tracks the frontend's
+missing ESLint config as the current open item, plus a running record of
+what's already been fixed. Earlier in the build, the batch-prediction
+endpoint computed risk classification but not GPA, and the analytics page
+had no histogram/scatter/level-comparison charts because the locked API
+contract had no endpoints to back them — both were flagged rather than
+faked with plausible-looking numbers at the time, and both were closed out
+in a later finalization pass once the missing backend aggregation endpoints
+were added.

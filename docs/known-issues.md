@@ -5,36 +5,55 @@ the last build phase rather than mid-build.
 
 ## Open
 
-- **Frontend has no ESLint config.** `frontend/package.json` lists a bare
-  `eslint` devDependency but no `eslint.config.js`, so `npm run lint` errors
-  out immediately instead of running. The original Vite JS scaffold's
-  `eslint.config.js` (root-level, using `@eslint/js`,
-  `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `globals`) was
-  removed in the Phase 1 cleanup of the stray scaffold and never replaced
-  with a TypeScript-aware equivalent. Needs `typescript-eslint`,
-  `eslint-plugin-react-hooks`, and `eslint-plugin-react-refresh` added as
-  devDependencies plus a `frontend/eslint.config.js` targeting
-  `**/*.{ts,tsx}`.
+_Nothing currently open — see "Fixed during finalization" below._
 
-- **`POST /predictions/batch` never populates `predicted_gpa`.** The
-  `BatchPredictionRow` schema advertises a `predicted_gpa` field, but
-  `predict_batch` in `app/api/v1/predictions.py` only ever calls
-  `bulk_risk_scores` and builds every row with `predicted_gpa=None`; there is
-  no GPA-regression path in the batch endpoint at all (unlike
-  `POST /predictions/student/{id}`, which returns risk, GPA, and course-score
-  predictions together). The frontend batch-upload results table renders this
-  honestly as "—" rather than inventing a value. Fixing it means adding a GPA
-  inference call inside `predict_batch`, mirroring `predict_student`.
-- **Analytics spec wishlist not fully backed by the locked API contract.**
-  Section I asks `/analytics` for a GPA histogram, an attendance-vs-performance
-  scatter with a regression line, and a level comparison chart. Section H's
-  locked endpoint list (`/analytics/overview`, `/trends`, `/correlations`,
-  `/course-difficulty`) has no per-student/per-enrolment granular data to back
-  these honestly — building them would mean either fetching full profiles for
-  all ~1,200 students client-side (impractical against this backend) or adding
-  new backend aggregation endpoints, which is beyond a frontend-only phase.
-  Built instead: a session-trends line chart and course-difficulty bar chart,
-  both backed by real existing endpoints. Flagged rather than faked.
+## Fixed during finalization
+
+- **Frontend now has a working ESLint config.** Added `typescript-eslint`,
+  `eslint-plugin-react-hooks`, and `eslint-plugin-react-refresh` as
+  devDependencies and a TypeScript-aware `frontend/eslint.config.js`
+  targeting `**/*.{ts,tsx}` (the original Vite JS scaffold's config was
+  removed in the Phase 1 cleanup and never replaced). Running `npm run lint`
+  against the real codebase surfaced three genuine issues, all fixed rather
+  than suppressed: `AuthContext`'s mount effect called `setIsLoading`
+  synchronously for the no-token branch (restructured to a lazy `useState`
+  initializer so the effect only runs for the async fetch path);
+  `BatchUploadTab`'s mount effect had the same synchronous-setState pattern
+  for pre-selected student IDs from the URL (replaced with lazy `useState`
+  initializers, removing the effect and its `exhaustive-deps` disable
+  comment entirely); and `Login`'s demo-account filler function was named
+  `useDemoAccount`, which `react-hooks/rules-of-hooks` correctly flagged as
+  an illegal hook call inside a click handler even though it isn't a hook
+  (renamed to `fillDemoAccount`). Also split `AuthContext`'s context object
+  into `hooks/useAuth.ts` to clear a `react-refresh/only-export-components`
+  warning about mixing a context export with a component export in the same
+  file. `npm run lint` now exits clean with zero errors and zero warnings.
+
+- **`POST /predictions/batch` now populates `predicted_gpa`.** Added
+  `prediction_service.bulk_gpa_scores`, mirroring `bulk_risk_scores`'s
+  vectorized-predict-only pattern (no SHAP, since bulk scoring never carries
+  a per-row explanation) rather than reimplementing GPA inference from
+  scratch. `predict_batch` now persists a `GPA_REGRESSION` prediction
+  alongside the existing `RISK_CLASSIFICATION` one for every row that
+  succeeds. Verified with a test asserting the batch value matches
+  `POST /predictions/student/{id}`'s GPA for the same student
+  (`tests/test_predictions_api.py`), not just "is not null."
+
+- **Analytics spec wishlist now backed by real endpoints.** Section I asks
+  `/analytics` for a GPA histogram, an attendance-vs-performance scatter with
+  a regression line, and a level comparison chart, but Section H's locked
+  endpoint list (`/analytics/overview`, `/trends`, `/correlations`,
+  `/course-difficulty`) had no per-student/per-enrolment granular data to
+  back these honestly. Closed the gap with three new institution-wide,
+  live-computed endpoints — `GET /analytics/gpa-distribution`,
+  `GET /analytics/attendance-performance`, `GET /analytics/level-comparison`
+  (see `docs/api.md`) — added as a documented amendment to Section H rather
+  than scope creep, since the charts were in the original spec's intent. The
+  frontend `/analytics` page now renders all three using the existing
+  skeleton/empty/error state components. Verified with backend tests per
+  endpoint (response shape plus one correctness check each, e.g. histogram
+  bucket counts sum to the seeded student count) and by live browser
+  verification against real seeded data.
 
 ## Fixed during Phase 6 (kept here as a record, no action needed)
 

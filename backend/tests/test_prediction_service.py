@@ -10,6 +10,7 @@ from app.models.enums import UserRole
 from app.services.prediction_service import (
     _active_model_rmse,
     _projected_cgpa,
+    bulk_gpa_scores,
     bulk_risk_scores,
     contributors_for_role,
     persist_prediction,
@@ -80,6 +81,29 @@ def test_bulk_risk_scores_can_be_filtered_to_specific_students(api_client) -> No
     all_scores = bulk_risk_scores()
     some_ids = all_scores["student_id"].head(3).tolist()
     filtered = bulk_risk_scores(some_ids)
+    assert set(filtered["student_id"]) == set(some_ids)
+
+
+def test_bulk_gpa_scores_returns_clipped_predictions_for_every_ongoing_student(api_client) -> None:
+    scores = bulk_gpa_scores()
+    assert not scores.empty
+    assert {"student_id", "predicted_gpa"}.issubset(scores.columns)
+    assert scores["predicted_gpa"].between(0, 5.0).all()
+
+
+def test_bulk_gpa_scores_shares_the_same_ongoing_students_as_bulk_risk_scores(api_client) -> None:
+    """Both bulk functions read the same (student, session, semester) rows
+    from build_prediction_features, so their student_id sets must match --
+    this is exactly the assumption predict_batch's GPA lookup relies on."""
+    risk_ids = set(bulk_risk_scores()["student_id"])
+    gpa_ids = set(bulk_gpa_scores()["student_id"])
+    assert risk_ids == gpa_ids
+
+
+def test_bulk_gpa_scores_can_be_filtered_to_specific_students(api_client) -> None:
+    all_scores = bulk_gpa_scores()
+    some_ids = all_scores["student_id"].head(3).tolist()
+    filtered = bulk_gpa_scores(some_ids)
     assert set(filtered["student_id"]) == set(some_ids)
 
 
