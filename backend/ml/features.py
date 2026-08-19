@@ -19,6 +19,7 @@ not a leaked input.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from app.core.academic_config import CONTINUOUS_ASSESSMENT_WEIGHT, PROBATION_CGPA_THRESHOLD
@@ -98,24 +99,46 @@ def _course_difficulty_by_semester(enrolments: pd.DataFrame) -> pd.DataFrame:
     return per_offering[["course_id", "session", "semester", "difficulty_index"]]
 
 
-def build_semester_features(
-    raw_tables: dict[str, pd.DataFrame],
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Build the shared T1/T2 feature table.
+def _extended_history(raw_tables: dict[str, pd.DataFrame], include_current: bool) -> pd.DataFrame:
+    """academic_history rows, optionally plus one synthetic (unlabeled) row per
+    student's current ongoing semester.
 
-    Returns (features, labels, meta):
-    - features: one row per completed (student, session, semester), 25+
-      columns, safe to pass straight to assert_no_leakage(..., "risk_classification")
-      or assert_no_leakage(..., "gpa_regression").
-    - labels: risk_label (T1), target_gpa / target_cgpa (T2) for that same row.
-    - meta: student_id, session, semester identifying each row (not a feature).
+    Adding that row *before* the lag computations below means "prior_cgpa",
+    "gpa_trend", etc. are derived identically whether the target row is a
+    historical semester (training) or the live ongoing one (prediction) --
+    each lag simply resolves to "the most recent completed semester's
+    values", with no separate code path needed for inference.
+    """
+    columns = ["student_id", "session", "semester", "credits_registered", "credits_earned", "gpa", "cgpa"]
+    history = raw_tables["academic_history"][columns].copy()
+    if not include_current:
+        return history
+
+    enrolments = raw_tables["enrolments"]
+    ongoing = enrolments.loc[enrolments["status"] == "ongoing", ["student_id", "session", "semester"]].drop_duplicates()
+    if ongoing.empty:
+        return history
+    for col in ("credits_registered", "credits_earned", "gpa", "cgpa"):
+        ongoing[col] = np.nan
+        history[col] = history[col].astype("float64")
+    return pd.concat([history, ongoing[columns]], ignore_index=True)
+
+
+def _build_semester_feature_table(
+    raw_tables: dict[str, pd.DataFrame], include_current: bool = False
+) -> pd.DataFrame:
+    """Core T1/T2 feature computation, shared by training (build_semester_features)
+    and live inference (build_prediction_features). Returns one row per target
+    (student, session, semester) with every feature column plus gpa/cgpa --
+    gpa/cgpa are NaN exactly for the synthetic "current semester" row(s), which
+    is how callers tell training rows (labeled) apart from prediction rows.
     """
     students = raw_tables["students"]
     courses = raw_tables["courses"]
     enrolments = raw_tables["enrolments"]
     attendance = raw_tables["attendance"]
     engagement = raw_tables["engagement"]
-    history = raw_tables["academic_history"].copy()
+    history = _extended_history(raw_tables, include_current)
 
     history["sort_key"] = _session_semester_key(history["session"], history["semester"])
     history = history.sort_values(["student_id", "sort_key"]).reset_index(drop=True)
@@ -219,18 +242,50 @@ def build_semester_features(
     features["study_hours_per_credit_load"] = features["study_hours_per_week"] / features["credit_load"].replace(0, pd.NA)
     features["gpa_trend_x_credit_load"] = features["gpa_trend"] * features["credit_load"]
 
+    return features
+
+
+def build_semester_features(
+    raw_tables: dict[str, pd.DataFrame],
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Build the shared T1/T2 *training* feature table.
+
+    Returns (features, labels, meta):
+    - features: one row per completed (student, session, semester), 25+
+      columns, safe to pass straight to assert_no_leakage(..., "risk_classification")
+      or assert_no_leakage(..., "gpa_regression").
+    - labels: risk_label (T1), target_gpa / target_cgpa (T2) for that same row.
+    - meta: student_id, session, semester identifying each row (not a feature).
+    """
+    full = _build_semester_feature_table(raw_tables, include_current=False)
     labels = pd.DataFrame(
         {
-            "risk_label": (features["gpa"] < PROBATION_CGPA_THRESHOLD).astype(int),
-            "target_gpa": features["gpa"],
-            "target_cgpa": features["cgpa"],
+            "risk_label": (full["gpa"] < PROBATION_CGPA_THRESHOLD).astype(int),
+            "target_gpa": full["gpa"],
+            "target_cgpa": full["cgpa"],
         }
     )
-    meta = features[["student_id", "session", "semester"]].copy()
-    feature_columns = [
-        c for c in features.columns if c not in {"student_id", "session", "semester", "gpa", "cgpa"}
-    ]
-    return features[feature_columns], labels, meta
+    meta = full[["student_id", "session", "semester"]].copy()
+    feature_columns = [c for c in full.columns if c not in {"student_id", "session", "semester", "gpa", "cgpa"}]
+    return full[feature_columns], labels, meta
+
+
+def build_prediction_features(raw_tables: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Build T1/T2 features for every student's current *ongoing* semester.
+
+    This is the live-inference counterpart to build_semester_features: same
+    feature columns, same leakage guarantees, but for the semester that
+    hasn't finished yet (no gpa/cgpa/risk_label exists to return, since
+    that's exactly what's being predicted). A student with no ongoing
+    enrolment (fully graduated, or withdrawn) simply has no row here.
+
+    Returns (features, meta) -- meta carries student_id/session/semester.
+    """
+    full = _build_semester_feature_table(raw_tables, include_current=True)
+    current = full[full["gpa"].isna()].reset_index(drop=True)
+    meta = current[["student_id", "session", "semester"]].copy()
+    feature_columns = [c for c in current.columns if c not in {"student_id", "session", "semester", "gpa", "cgpa"}]
+    return current[feature_columns].reset_index(drop=True), meta.reset_index(drop=True)
 
 
 def build_course_score_features(
@@ -248,6 +303,13 @@ def build_course_score_features(
     completed = enrolments[enrolments["status"] == "completed"].dropna(subset=["total_score"])
     joined = completed.merge(attendance, left_on="id", right_on="enrolment_id", how="left", suffixes=("", "_att"))
 
+    features = _course_score_feature_columns(joined)
+    labels = pd.DataFrame({"target_total_score": joined["total_score"]})
+    meta = joined[["student_id", "course_id", "session", "semester"]].reset_index(drop=True)
+    return features, labels.reset_index(drop=True), meta
+
+
+def _course_score_feature_columns(joined: pd.DataFrame) -> pd.DataFrame:
     features = pd.DataFrame(
         {
             "ca_score": joined["ca_score"],
@@ -258,7 +320,19 @@ def build_course_score_features(
         }
     )
     features["attendance_x_ca_score"] = features["attendance_rate"] * features["ca_score"]
+    return features.reset_index(drop=True)
 
-    labels = pd.DataFrame({"target_total_score": joined["total_score"]})
+
+def build_course_prediction_features(raw_tables: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """T3 features for currently-ongoing enrolments (total_score isn't known yet
+    -- that's exactly what's being predicted). Live-inference counterpart to
+    build_course_score_features."""
+    enrolments = raw_tables["enrolments"]
+    attendance = raw_tables["attendance"]
+
+    ongoing = enrolments[enrolments["status"] == "ongoing"]
+    joined = ongoing.merge(attendance, left_on="id", right_on="enrolment_id", how="left", suffixes=("", "_att"))
+
+    features = _course_score_feature_columns(joined)
     meta = joined[["student_id", "course_id", "session", "semester"]].reset_index(drop=True)
-    return features.reset_index(drop=True), labels.reset_index(drop=True), meta
+    return features, meta
