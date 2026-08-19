@@ -4,12 +4,13 @@ Offline-first university project for early performance-risk prediction, GPA fore
 
 ## Current status
 
-Phase 0 and Phase 1 are complete:
+Phases 0-2 are complete:
 
 - Project scaffolding, central academic configuration, dependency manifests, and a FastAPI health endpoint (Phase 0).
 - SQLModel tables for every entity in the data model, Alembic migrations, a causally-coherent synthetic data generator (1,200 students across 6 sessions), database seeding, and CSV import for real institutional data with row-level validation (Phase 1).
+- Feature engineering (35+ engineered features across academic history, current performance, attendance, engagement, load/context, and interactions), the data-leakage guard (`ml.features.assert_no_leakage`), and the shared preprocessing pipeline used by every model in Phase 3 (Phase 2).
 
-Feature engineering, model training, authentication, and dashboard features remain phase-gated.
+Model training, authentication, and dashboard features remain phase-gated.
 
 Run `make seed` to (re)generate the synthetic dataset and load it into the database. It prints a calibration report and a verification report (correlation matrix, grade-classification distribution, missingness rates) so the seeded data's coherence can be checked without opening the database.
 
