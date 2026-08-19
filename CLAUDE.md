@@ -1,7 +1,7 @@
 # Student Performance Prediction System
 
 ## Phase status
-Phase 0 is scaffolded. Do not introduce synthetic data, ML logic, API resources, or UI predictions until their respective phase is explicitly begun.
+Phase 0 and Phase 1 are complete (DB models, Alembic migrations, synthetic data generator, DB seeding, CSV import). Do not introduce feature engineering, model training, API resources, or UI predictions until their respective phase is explicitly begun.
 
 ## Design rules
 - Keep all academic rules in `backend/app/core/academic_config.py`.

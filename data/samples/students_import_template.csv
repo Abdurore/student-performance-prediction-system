@@ -1,0 +1,3 @@
+matric_no,first_name,last_name,gender,date_of_birth,department,programme,level,entry_mode,entry_score,state_of_origin,accommodation,has_scholarship,employment_status,enrolment_session
+CSC/24/90001,Amaka,Obi,female,2003-05-14,Computer Science,B.Sc. Computer Science,100,UTME,245,Lagos,on_campus,false,none,2024/2025
+ECO/24/90002,Tunde,Balogun,male,2002-11-02,Economics,B.Sc. Economics,100,Direct Entry,210,Oyo,off_campus,true,part_time,2024/2025

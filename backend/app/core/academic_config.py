@@ -17,10 +17,17 @@ GRADE_BANDS: Final[tuple[tuple[str, int, int, int], ...]] = (
 
 
 def grade_for_score(score: float) -> tuple[str, int]:
-    """Return the grade and grade point for a valid 0-100 assessment score."""
+    """Return the grade and grade point for a valid 0-100 assessment score.
+
+    CA + exam totals are continuous (e.g. 39.5), so classification uses
+    each band's lower bound as an inclusive floor and falls through to the
+    next lower band otherwise -- checking the integer upper bound too would
+    leave gaps between bands (e.g. 39.01-39.99 matched neither F's upper
+    bound of 39 nor E's lower bound of 40).
+    """
     if not 0 <= score <= 100:
         raise ValueError("Assessment scores must be between 0 and 100.")
-    for grade, lower_bound, upper_bound, grade_point in GRADE_BANDS:
-        if lower_bound <= score <= upper_bound:
+    for grade, lower_bound, _upper_bound, grade_point in GRADE_BANDS:
+        if score >= lower_bound:
             return grade, grade_point
     raise RuntimeError("Grade bands do not cover the configured score range.")

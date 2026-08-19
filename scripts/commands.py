@@ -39,6 +39,13 @@ def test() -> None:
     run(["npm", "run", "test"], FRONTEND)
 
 
+def seed() -> None:
+    """Apply migrations, then regenerate and load the synthetic dataset."""
+    run([str(venv_python()), "-m", "alembic", "upgrade", "head"], BACKEND)
+    run([str(venv_python()), "-m", "app.db.seed"], BACKEND)
+    run([str(venv_python()), "-m", "scripts.verify_seed"], BACKEND)
+
+
 def dev() -> None:
     """Run both local development servers until the user interrupts the command."""
     backend = subprocess.Popen([str(venv_python()), "-m", "uvicorn", "app.main:app", "--reload"], cwd=BACKEND)
@@ -70,8 +77,11 @@ def main() -> None:
         test()
     elif command == "dev":
         dev()
+    elif command == "seed":
+        seed()
     elif command == "demo":
         install()
+        seed()
         dev()
     else:
         unavailable(command)
