@@ -1,7 +1,7 @@
 # Student Performance Prediction System
 
 ## Phase status
-Phase 0 and Phase 1 are complete (DB models, Alembic migrations, synthetic data generator, DB seeding, CSV import). Do not introduce feature engineering, model training, API resources, or UI predictions until their respective phase is explicitly begun.
+Phases 0-2 are complete (DB models/migrations, synthetic data generator/seeding/CSV import, feature engineering + leakage guard + preprocessing). Do not introduce model training, API resources, or UI predictions until their respective phase is explicitly begun.
 
 ## Design rules
 - Keep all academic rules in `backend/app/core/academic_config.py`.
