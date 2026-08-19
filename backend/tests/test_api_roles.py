@@ -1,68 +1,10 @@
 """Phase 5 role-enforcement tests: one forbidden-access case per role (Section H).
 
 Runs the real FastAPI app against the isolated small test DB (not the demo
-database), with every module that binds its own `engine` name monkeypatched
-to match -- app.db.session backs the get_session dependency every router
-uses; ml.explain/ml.fairness/ml.preprocessing/ml.train are imported
-directly by the prediction/analytics/model services.
+database) via the shared `api_client`/`demo_users` fixtures in conftest.py.
 """
 
-from datetime import date
-
-import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session
-
-from app.core.security import hash_password
-from app.db import session as db_session_module
-from app.main import app
-from app.models import Student, User
-from app.models.enums import Accommodation, Gender, UserRole
-from ml import explain as explain_module
-from ml import fairness as fairness_module
-from ml import preprocessing as preprocessing_module
-from ml import train as train_module
-
-
-@pytest.fixture()
-def api_client(trained_registry, small_db_engine):
-    mp = pytest.MonkeyPatch()
-    for module in (db_session_module, preprocessing_module, explain_module, fairness_module, train_module):
-        mp.setattr(module, "engine", small_db_engine)
-    yield TestClient(app)
-    mp.undo()
-
-
-@pytest.fixture(scope="module")
-def demo_users(small_db_engine):
-    """One user per role, plus a second student to test cross-student access."""
-    with Session(small_db_engine) as session:
-        pwd = hash_password("Password123!")
-        admin = User(email="role-admin@university.edu.ng", password_hash=pwd, full_name="Role Admin", role=UserRole.ADMIN)
-        lecturer = User(email="role-lecturer@university.edu.ng", password_hash=pwd, full_name="Role Lecturer", role=UserRole.LECTURER)
-        adviser = User(email="role-adviser@university.edu.ng", password_hash=pwd, full_name="Role Adviser", role=UserRole.ADVISER)
-
-        other_student_row = Student(
-            matric_no="ROLE/24/00099", first_name="Other", last_name="Student", gender=Gender.MALE,
-            date_of_birth=date(2003, 1, 1), department="Computer Science", programme="B.Sc. CS", level=100,
-            entry_mode="UTME", entry_score=200, state_of_origin="Lagos", accommodation=Accommodation.ON_CAMPUS,
-            enrolment_session="2024/2025",
-        )
-        session.add(other_student_row)
-        session.commit()
-        session.refresh(other_student_row)
-
-        student_user = User(
-            email="role-student@university.edu.ng", password_hash=pwd, full_name="Role Student",
-            role=UserRole.STUDENT, student_id=other_student_row.id,
-        )
-        session.add_all([admin, lecturer, adviser, student_user])
-        session.commit()
-        for u in (admin, lecturer, adviser, student_user):
-            session.refresh(u)
-        users = {"admin": admin, "lecturer": lecturer, "adviser": adviser, "student": student_user}
-        users["other_student_id"] = other_student_row.id
-    return users
 
 
 def _login(client: TestClient, email: str) -> dict:

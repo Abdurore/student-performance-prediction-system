@@ -10,8 +10,8 @@ export default defineConfig({
     },
   },
   test: {
-    // No component tests exist yet (Phase 0 scaffold only); this keeps
-    // `make test` green until Phase 6 adds React Testing Library + jsdom.
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
     passWithNoTests: true,
   },
 })
