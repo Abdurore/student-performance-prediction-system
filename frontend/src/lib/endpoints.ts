@@ -1,9 +1,10 @@
 import { api } from './api'
 import type { TokenResponse, UserProfile } from '@/types/auth'
-import type { OverviewResponse, TrendsResponse } from '@/types/analytics'
+import type { CorrelationsResponse, CourseDifficultyResponse, OverviewResponse, TrendsResponse } from '@/types/analytics'
 import type { AtRiskResponse, StudentPredictionResponse } from '@/types/prediction'
 import type { Course, PaginatedStudents, StudentProfile } from '@/types/student'
 import type { InterventionRead } from '@/types/intervention'
+import type { ModelComparisonResponse, ModelRegistryRead, RetrainResponse } from '@/types/model'
 
 export function login(email: string, password: string): Promise<TokenResponse> {
   return api.post<TokenResponse>('/auth/login', { email, password })
@@ -71,4 +72,50 @@ export interface InterventionCreatePayload {
 
 export function createIntervention(payload: InterventionCreatePayload): Promise<InterventionRead> {
   return api.post<InterventionRead>('/interventions', payload)
+}
+
+export interface InterventionUpdatePayload {
+  status?: string
+  notes?: string | null
+  outcome_note?: string | null
+}
+
+export function updateIntervention(id: number, payload: InterventionUpdatePayload): Promise<InterventionRead> {
+  return api.put<InterventionRead>(`/interventions/${id}`, payload)
+}
+
+export function downloadStudentReport(studentId: number): Promise<Blob> {
+  return api.postBlob(`/reports/student/${studentId}`)
+}
+
+export function downloadAtRiskReport(): Promise<Blob> {
+  return api.postBlob('/reports/at-risk')
+}
+
+export function getCorrelations(): Promise<CorrelationsResponse> {
+  return api.get<CorrelationsResponse>('/analytics/correlations')
+}
+
+export function getCourseDifficulty(): Promise<CourseDifficultyResponse> {
+  return api.get<CourseDifficultyResponse>('/analytics/course-difficulty')
+}
+
+export function getModels(): Promise<ModelRegistryRead[]> {
+  return api.get<ModelRegistryRead[]>('/models')
+}
+
+export function getModelComparison(): Promise<ModelComparisonResponse> {
+  return api.get<ModelComparisonResponse>('/models/comparison')
+}
+
+export function getModelFairness(version: string): Promise<Record<string, unknown>> {
+  return api.get<Record<string, unknown>>(`/models/${encodeURIComponent(version)}/fairness`)
+}
+
+export function activateModel(version: string): Promise<ModelRegistryRead> {
+  return api.post<ModelRegistryRead>(`/models/${encodeURIComponent(version)}/activate`)
+}
+
+export function retrainModels(tasks?: string[]): Promise<RetrainResponse> {
+  return api.post<RetrainResponse>('/models/retrain', { tasks: tasks ?? null })
 }
