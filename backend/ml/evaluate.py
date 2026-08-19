@@ -87,7 +87,9 @@ def regression_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     }
 
 
-def save_comparison_chart(results: list[dict], task: str, metric_key: str, out_name: str) -> Path:
+def save_comparison_chart(
+    results: list[dict], task: str, metric_key: str, out_name: str, out_dir: Path = DIAGRAMS_DIR
+) -> Path:
     """Bar chart comparing every algorithm on one metric for one task."""
     names = [r["algorithm"] for r in results]
     values = [r["cv_metrics"][metric_key] for r in results]
@@ -97,15 +99,15 @@ def save_comparison_chart(results: list[dict], task: str, metric_key: str, out_n
     bars[best_idx].set_color("#D97706")
     ax.set_ylabel(metric_key)
     ax.set_title(f"{task}: {metric_key} by algorithm")
-    ax.set_xticklabels(names, rotation=30, ha="right")
+    plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
     fig.tight_layout()
-    out_path = DIAGRAMS_DIR / out_name
+    out_path = out_dir / out_name
     fig.savefig(out_path, dpi=300)
     plt.close(fig)
     return out_path
 
 
-def save_confusion_matrix_chart(cm: list[list[int]], out_name: str) -> Path:
+def save_confusion_matrix_chart(cm: list[list[int]], out_name: str, out_dir: Path = DIAGRAMS_DIR) -> Path:
     cm_arr = np.array(cm)
     fig, ax = plt.subplots(figsize=(4.5, 4))
     im = ax.imshow(cm_arr, cmap="Blues")
@@ -119,13 +121,13 @@ def save_confusion_matrix_chart(cm: list[list[int]], out_name: str) -> Path:
             ax.text(j, i, str(cm_arr[i, j]), ha="center", va="center", color="black")
     fig.colorbar(im)
     fig.tight_layout()
-    out_path = DIAGRAMS_DIR / out_name
+    out_path = out_dir / out_name
     fig.savefig(out_path, dpi=300)
     plt.close(fig)
     return out_path
 
 
-def save_roc_curve_chart(roc_curve_data: dict, out_name: str) -> Path:
+def save_roc_curve_chart(roc_curve_data: dict, out_name: str, out_dir: Path = DIAGRAMS_DIR) -> Path:
     fig, ax = plt.subplots(figsize=(4.5, 4.5))
     ax.plot(roc_curve_data["fpr"], roc_curve_data["tpr"], color="#0F2038")
     ax.plot([0, 1], [0, 1], linestyle="--", color="#94A3B8")
@@ -133,13 +135,13 @@ def save_roc_curve_chart(roc_curve_data: dict, out_name: str) -> Path:
     ax.set_ylabel("True positive rate")
     ax.set_title("ROC curve")
     fig.tight_layout()
-    out_path = DIAGRAMS_DIR / out_name
+    out_path = out_dir / out_name
     fig.savefig(out_path, dpi=300)
     plt.close(fig)
     return out_path
 
 
-def save_residual_chart(residual_plot_data: dict, out_name: str) -> Path:
+def save_residual_chart(residual_plot_data: dict, out_name: str, out_dir: Path = DIAGRAMS_DIR) -> Path:
     fig, ax = plt.subplots(figsize=(5, 4))
     ax.scatter(residual_plot_data["y_true"], residual_plot_data["residual"], s=10, alpha=0.5, color="#0F2038")
     ax.axhline(0, color="#B91C1C", linestyle="--")
@@ -147,13 +149,13 @@ def save_residual_chart(residual_plot_data: dict, out_name: str) -> Path:
     ax.set_ylabel("Residual")
     ax.set_title("Residuals")
     fig.tight_layout()
-    out_path = DIAGRAMS_DIR / out_name
+    out_path = out_dir / out_name
     fig.savefig(out_path, dpi=300)
     plt.close(fig)
     return out_path
 
 
-def save_scatter_chart(predicted_vs_actual_data: dict, out_name: str) -> Path:
+def save_scatter_chart(predicted_vs_actual_data: dict, out_name: str, out_dir: Path = DIAGRAMS_DIR) -> Path:
     y_true = predicted_vs_actual_data["y_true"]
     y_pred = predicted_vs_actual_data["y_pred"]
     fig, ax = plt.subplots(figsize=(5, 5))
@@ -164,7 +166,7 @@ def save_scatter_chart(predicted_vs_actual_data: dict, out_name: str) -> Path:
     ax.set_ylabel("Predicted")
     ax.set_title("Predicted vs actual")
     fig.tight_layout()
-    out_path = DIAGRAMS_DIR / out_name
+    out_path = out_dir / out_name
     fig.savefig(out_path, dpi=300)
     plt.close(fig)
     return out_path

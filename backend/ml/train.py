@@ -66,6 +66,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_DIR = Path(__file__).resolve().parent / "artifacts"
 METRICS_DIR = ARTIFACTS_DIR / "metrics"
 MODELS_DIR = ARTIFACTS_DIR / "models"
+CHARTS_DIR = evaluate.DIAGRAMS_DIR
 
 CLASSIFICATION_ALGORITHMS: dict[str, type] = {
     "logistic_regression": LogisticRegression,
@@ -90,7 +91,7 @@ _ALGORITHM_FIXED_KWARGS: dict[str, dict] = {
     "random_forest": {"random_state": RANDOM_SEED, "n_jobs": -1},
     "xgboost": {"random_state": RANDOM_SEED, "n_jobs": -1, "eval_metric": "logloss"},
     "svm": {"probability": True, "random_state": RANDOM_SEED},
-    "mlp": {"max_iter": 500, "random_state": RANDOM_SEED},
+    "mlp": {"max_iter": 1000, "random_state": RANDOM_SEED},
 }
 
 PRIMARY_METRIC: dict[str, str] = {
@@ -313,6 +314,7 @@ def persist_task_results(task: str, results: list[dict]) -> list[dict]:
     task_kind = TASK_KIND[task]
     METRICS_DIR.mkdir(parents=True, exist_ok=True)
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    CHARTS_DIR.mkdir(parents=True, exist_ok=True)
 
     primary_by_algo = _select_primary_result(results, task_kind)
     trained_at = datetime.now(timezone.utc)
@@ -345,16 +347,24 @@ def persist_task_results(task: str, results: list[dict]) -> list[dict]:
     # comparison chart across all algorithms for this task
     comparable = [r for r in primary_by_algo.values() if not r["leakage_flag"]]
     if comparable:
-        evaluate.save_comparison_chart(comparable, task, PRIMARY_METRIC[task_kind], f"{task}_comparison.png")
+        evaluate.save_comparison_chart(
+            comparable, task, PRIMARY_METRIC[task_kind], f"{task}_comparison.png", out_dir=CHARTS_DIR
+        )
 
     best = max(comparable, key=lambda r: r["cv_metrics"][PRIMARY_METRIC[task_kind]], default=None)
     if best is not None:
         if task_kind == "classification":
-            evaluate.save_confusion_matrix_chart(best["cv_metrics"]["confusion_matrix"], f"{task}_confusion_matrix.png")
-            evaluate.save_roc_curve_chart(best["cv_metrics"]["roc_curve"], f"{task}_roc_curve.png")
+            evaluate.save_confusion_matrix_chart(
+                best["cv_metrics"]["confusion_matrix"], f"{task}_confusion_matrix.png", out_dir=CHARTS_DIR
+            )
+            evaluate.save_roc_curve_chart(best["cv_metrics"]["roc_curve"], f"{task}_roc_curve.png", out_dir=CHARTS_DIR)
         else:
-            evaluate.save_residual_chart(best["cv_metrics"]["residual_plot_data"], f"{task}_residuals.png")
-            evaluate.save_scatter_chart(best["cv_metrics"]["predicted_vs_actual_data"], f"{task}_predicted_vs_actual.png")
+            evaluate.save_residual_chart(
+                best["cv_metrics"]["residual_plot_data"], f"{task}_residuals.png", out_dir=CHARTS_DIR
+            )
+            evaluate.save_scatter_chart(
+                best["cv_metrics"]["predicted_vs_actual_data"], f"{task}_predicted_vs_actual.png", out_dir=CHARTS_DIR
+            )
 
     _mirror_to_model_registry(primary_by_algo, best_algo=best["algorithm"] if best else None)
     return persisted_summaries
@@ -372,6 +382,13 @@ def _mirror_to_model_registry(primary_by_algo: dict[str, dict], best_algo: str |
 
         for algo_key, result in primary_by_algo.items():
             version = f"{result['task']}__{algo_key}"
+            artifact_file = MODELS_DIR / f"{version}.joblib"
+            try:
+                artifact_path = str(artifact_file.relative_to(REPO_ROOT))
+            except ValueError:
+                # MODELS_DIR isn't under REPO_ROOT (e.g. a test's tmp_path) -- store
+                # the absolute path rather than failing the whole training run.
+                artifact_path = str(artifact_file)
             registry_row = ModelRegistry(
                 version=version,
                 task=result["task"],
@@ -382,7 +399,7 @@ def _mirror_to_model_registry(primary_by_algo: dict[str, dict], best_algo: str |
                 hyperparameters=result["best_params"],
                 metrics=result["cv_metrics"],
                 fairness_report=None,
-                artifact_path=str((MODELS_DIR / f"{version}.joblib").relative_to(REPO_ROOT)),
+                artifact_path=artifact_path,
                 is_active=(algo_key == best_algo),
             )
             session.add(registry_row)
