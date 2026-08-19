@@ -42,3 +42,42 @@ class CourseDifficultyItem(BaseModel):
 
 class CourseDifficultyResponse(BaseModel):
     items: list[CourseDifficultyItem]
+
+
+class GpaHistogramBucket(BaseModel):
+    range_low: float
+    range_high: float
+    count: int
+
+
+class GpaDistributionResponse(BaseModel):
+    buckets: list[GpaHistogramBucket]
+    n_students: int
+
+
+class AttendancePerformancePoint(BaseModel):
+    attendance_rate: float
+    total_score: float
+
+
+class AttendancePerformanceResponse(BaseModel):
+    points: list[AttendancePerformancePoint]
+    slope: float
+    intercept: float
+    n_total: int
+    n_sampled: int
+
+
+class LevelComparisonItem(BaseModel):
+    level: int
+    n_students: int
+    average_gpa: float
+    average_cgpa: float
+    at_risk_low: int
+    at_risk_moderate: int
+    at_risk_high: int
+    at_risk_critical: int
+
+
+class LevelComparisonResponse(BaseModel):
+    levels: list[LevelComparisonItem]

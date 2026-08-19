@@ -104,6 +104,33 @@ def bulk_risk_scores(student_ids: list[int] | None = None) -> pd.DataFrame:
     return result.reset_index(drop=True)
 
 
+def bulk_gpa_scores(student_ids: list[int] | None = None) -> pd.DataFrame:
+    """Fast, unexplained GPA point forecasts for every (or the given) active student.
+
+    Mirrors bulk_risk_scores exactly (predict only, no SHAP) -- see the
+    module docstring for why bulk scoring and single-student detail are
+    deliberately different costs. Shares the same underlying (student,
+    session, semester) rows as bulk_risk_scores, since both read from
+    build_prediction_features -- a student found by one is found by the
+    other. Returns a DataFrame with student_id, session, semester,
+    predicted_gpa, algorithm.
+    """
+    raw = load_raw_tables()
+    X, meta = build_prediction_features(raw)
+    if student_ids is not None:
+        mask = meta["student_id"].isin(student_ids)
+        X, meta = X[mask], meta[mask]
+    if X.empty:
+        return meta.assign(predicted_gpa=[], algorithm=[])
+
+    pipeline, algorithm = load_active_pipeline("gpa_regression")
+    predictions = np.clip(pipeline.predict(X), 0, GPA_SCALE)
+    result = meta.copy()
+    result["predicted_gpa"] = predictions
+    result["algorithm"] = algorithm
+    return result.reset_index(drop=True)
+
+
 def _projected_cgpa(predicted_gpa: float, prior_cgpa: float | None, semesters_completed: float) -> float:
     """Credit-agnostic approximation: blend the predicted semester GPA into the
     running CGPA, weighted by how many semesters already contributed to it.

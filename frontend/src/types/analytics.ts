@@ -38,3 +38,42 @@ export interface CourseDifficultyItem {
 export interface CourseDifficultyResponse {
   items: CourseDifficultyItem[]
 }
+
+export interface GpaHistogramBucket {
+  range_low: number
+  range_high: number
+  count: number
+}
+
+export interface GpaDistributionResponse {
+  buckets: GpaHistogramBucket[]
+  n_students: number
+}
+
+export interface AttendancePerformancePoint {
+  attendance_rate: number
+  total_score: number
+}
+
+export interface AttendancePerformanceResponse {
+  points: AttendancePerformancePoint[]
+  slope: number
+  intercept: number
+  n_total: number
+  n_sampled: number
+}
+
+export interface LevelComparisonItem {
+  level: number
+  n_students: number
+  average_gpa: number
+  average_cgpa: number
+  at_risk_low: number
+  at_risk_moderate: number
+  at_risk_high: number
+  at_risk_critical: number
+}
+
+export interface LevelComparisonResponse {
+  levels: LevelComparisonItem[]
+}

@@ -40,7 +40,7 @@ export function Login() {
     }
   }
 
-  function useDemoAccount(demoEmail: string) {
+  function fillDemoAccount(demoEmail: string) {
     setEmail(demoEmail)
     setPassword(DEMO_PASSWORD)
     setError(null)
@@ -115,7 +115,7 @@ export function Login() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => useDemoAccount(account.email)}
+                  onClick={() => fillDemoAccount(account.email)}
                   className="shrink-0 rounded border border-amber-200 bg-white px-2 py-0.5 text-xs font-medium text-amber-600 hover:bg-amber-100"
                 >
                   Use

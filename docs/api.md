@@ -85,9 +85,13 @@ student-facing filter (only modifiable factors, forward-looking language)
 is applied when *serving* the response to a student caller, never when
 writing the row — see `docs/architecture.md` §5.
 
-`predicted_gpa` in `BatchPredictionResponse` is currently always `null` —
-the batch endpoint only runs risk-classification inference, not the GPA
-regressor. See `docs/known-issues.md`.
+`predicted_gpa` in `BatchPredictionResponse` is real GPA-regression
+inference (`prediction_service.bulk_gpa_scores`, the same vectorized-predict-
+only pattern as `bulk_risk_scores` — no SHAP, since a batch call doesn't need
+per-row explanations), populated for every row that doesn't have an `error`.
+Both the risk and GPA predictions for a batch row are also persisted as
+`Prediction` rows with empty `feature_contributions`, matching how bulk
+scoring elsewhere in this API never carries an explanation.
 
 ## Analytics
 
@@ -97,8 +101,11 @@ regressor. See `docs/known-issues.md`.
 | GET | `/analytics/trends` | any authenticated user | `{points: [{session, average_gpa, average_cgpa, n_students}]}` |
 | GET | `/analytics/correlations` | any authenticated user | `{features: string[], matrix: number[][]}` — Pearson correlation over every numeric T1/T2 training feature |
 | GET | `/analytics/course-difficulty` | any authenticated user | `{items: [{course_id, course_code, title, department, n_completed, average_score, failure_rate}]}` |
+| GET | `/analytics/gpa-distribution` | any authenticated user | `{buckets: [{range_low, range_high, count}], n_students}` — histogram of each student's most recent-semester GPA in fixed 0.5-wide buckets across the full `[0, GPA_SCALE]` range |
+| GET | `/analytics/attendance-performance` | any authenticated user | `{points: [{attendance_rate, total_score}], slope, intercept, n_total, n_sampled}` — per-enrolment attendance vs. total score; the regression line is fitted on all `n_total` completed enrolments, but `points` is capped to a random sample of `n_sampled` (both counts reported, never hidden) |
+| GET | `/analytics/level-comparison` | any authenticated user | `{levels: [{level, n_students, average_gpa, average_cgpa, at_risk_low, at_risk_moderate, at_risk_high, at_risk_critical}]}` — GPA/CGPA averages and risk-tier distribution broken down by student level (100–500) |
 
-These four are **not** row-scoped by student — they're institution-wide
+These seven are **not** row-scoped by student — they're institution-wide
 aggregates, computed live on every call (never a precomputed snapshot).
 
 ## Models

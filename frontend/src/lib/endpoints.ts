@@ -1,6 +1,14 @@
 import { api } from './api'
 import type { TokenResponse, UserProfile } from '@/types/auth'
-import type { CorrelationsResponse, CourseDifficultyResponse, OverviewResponse, TrendsResponse } from '@/types/analytics'
+import type {
+  AttendancePerformanceResponse,
+  CorrelationsResponse,
+  CourseDifficultyResponse,
+  GpaDistributionResponse,
+  LevelComparisonResponse,
+  OverviewResponse,
+  TrendsResponse,
+} from '@/types/analytics'
 import type { AtRiskResponse, BatchPredictionResponse, StudentPredictionResponse } from '@/types/prediction'
 import type { Course, PaginatedStudents, StudentProfile } from '@/types/student'
 import type { InterventionRead } from '@/types/intervention'
@@ -102,6 +110,18 @@ export function getCorrelations(): Promise<CorrelationsResponse> {
 
 export function getCourseDifficulty(): Promise<CourseDifficultyResponse> {
   return api.get<CourseDifficultyResponse>('/analytics/course-difficulty')
+}
+
+export function getGpaDistribution(): Promise<GpaDistributionResponse> {
+  return api.get<GpaDistributionResponse>('/analytics/gpa-distribution')
+}
+
+export function getAttendancePerformance(): Promise<AttendancePerformanceResponse> {
+  return api.get<AttendancePerformanceResponse>('/analytics/attendance-performance')
+}
+
+export function getLevelComparison(): Promise<LevelComparisonResponse> {
+  return api.get<LevelComparisonResponse>('/analytics/level-comparison')
 }
 
 export function getModels(): Promise<ModelRegistryRead[]> {

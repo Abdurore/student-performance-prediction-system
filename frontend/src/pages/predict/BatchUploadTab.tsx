@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { AlertTriangle, Download, Loader2, Upload } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
@@ -9,31 +9,33 @@ import { RiskBadge } from '@/components/ui/RiskBadge'
 import { ErrorState } from '@/components/ui/ErrorState'
 import type { RiskTier } from '@/types/prediction'
 
+function parseIdsFromQuery(searchParams: URLSearchParams): number[] {
+  const idsParam = searchParams.get('ids')
+  if (!idsParam) return []
+  return Array.from(
+    new Set(
+      idsParam
+        .split(',')
+        .map((v) => Number(v.trim()))
+        .filter((v) => Number.isInteger(v) && v > 0),
+    ),
+  )
+}
+
 export function BatchUploadTab() {
   const [searchParams] = useSearchParams()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [parsed, setParsed] = useState<ParsedBatchCsv | null>(null)
-  const [source, setSource] = useState<'csv' | 'selection' | null>(null)
+  // Read once on first render via a lazy initializer -- not reactive to
+  // later searchParams changes, matching the previous mount-only effect.
+  const [parsed, setParsed] = useState<ParsedBatchCsv | null>(() => {
+    const ids = parseIdsFromQuery(searchParams)
+    return ids.length > 0 ? { rows: [], validIds: ids, invalidCount: 0, duplicateCount: 0 } : null
+  })
+  const [source, setSource] = useState<'csv' | 'selection' | null>(() =>
+    parseIdsFromQuery(searchParams).length > 0 ? 'selection' : null,
+  )
 
   const batchMutation = useMutation({ mutationFn: (ids: number[]) => predictBatch(ids) })
-
-  useEffect(() => {
-    const idsParam = searchParams.get('ids')
-    if (!idsParam) return
-    const ids = Array.from(
-      new Set(
-        idsParam
-          .split(',')
-          .map((v) => Number(v.trim()))
-          .filter((v) => Number.isInteger(v) && v > 0),
-      ),
-    )
-    if (ids.length > 0) {
-      setParsed({ rows: [], validIds: ids, invalidCount: 0, duplicateCount: 0 })
-      setSource('selection')
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   function handleDownloadTemplate() {
     const blob = new Blob([buildBatchTemplateCsv()], { type: 'text/csv' })

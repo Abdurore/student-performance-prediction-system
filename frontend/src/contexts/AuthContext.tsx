@@ -1,27 +1,16 @@
-import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getStoredToken, setStoredToken } from '@/lib/api'
 import { getMe, login as loginRequest } from '@/lib/endpoints'
+import { AuthContext } from '@/hooks/useAuth'
 import type { UserProfile } from '@/types/auth'
-
-interface AuthContextValue {
-  user: UserProfile | null
-  isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
-  logout: () => void
-}
-
-export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(() => Boolean(getStoredToken()))
 
   useEffect(() => {
     const token = getStoredToken()
-    if (!token) {
-      setIsLoading(false)
-      return
-    }
+    if (!token) return
     getMe()
       .then(setUser)
       .catch(() => {

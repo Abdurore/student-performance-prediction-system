@@ -20,6 +20,7 @@ from app.schemas.prediction import (
     StudentPredictionResponse,
 )
 from app.services.prediction_service import (
+    bulk_gpa_scores,
     bulk_risk_scores,
     contributors_for_role,
     persist_prediction,
@@ -125,13 +126,18 @@ def predict_batch(
     scope = scope_student_ids(session, current_user)
     requested_ids = payload.student_ids
     if requested_ids is None:
-        requested_ids = list(scope) if scope is not None else [s.id for s in session.exec(select(Student.id)).all()]
+        requested_ids = list(scope) if scope is not None else list(session.exec(select(Student.id)).all())
     elif scope is not None:
         requested_ids = [i for i in requested_ids if i in scope]
 
     scores = bulk_risk_scores(requested_ids)
-    version = _model_version(session, "risk_classification")
+    gpa_scores = bulk_gpa_scores(requested_ids)
+    risk_version = _model_version(session, "risk_classification")
+    gpa_version = _model_version(session, "gpa_regression")
     found_ids = set(scores["student_id"]) if not scores.empty else set()
+    gpa_by_student = (
+        dict(zip(gpa_scores["student_id"], gpa_scores["predicted_gpa"])) if not gpa_scores.empty else {}
+    )
     students_by_id = {s.id: s for s in session.exec(select(Student).where(Student.id.in_(requested_ids))).all()}
 
     rows: list[BatchPredictionRow] = []
@@ -149,12 +155,23 @@ def predict_batch(
             predicted_value=float(record["probability"]), predicted_class=record["risk_tier"],
             risk_tier=RiskTier(record["risk_tier"]), confidence=max(record["probability"], 1 - record["probability"]),
             probability=float(record["probability"]), feature_contributions=[],
-            input_snapshot={"session": record["session"], "semester": record["semester"]}, model_version=version,
+            input_snapshot={"session": record["session"], "semester": record["semester"]}, model_version=risk_version,
         )
+
+        predicted_gpa = gpa_by_student.get(student_id)
+        if predicted_gpa is not None:
+            predicted_gpa = float(predicted_gpa)
+            persist_prediction(
+                session, student_id=student_id, task=PredictionTask.GPA_REGRESSION,
+                predicted_value=predicted_gpa, predicted_class=None, risk_tier=None, confidence=None,
+                probability=None, feature_contributions=[],
+                input_snapshot={"session": record["session"], "semester": record["semester"]}, model_version=gpa_version,
+            )
+
         rows.append(
             BatchPredictionRow(
                 student_id=student_id, matric_no=student.matric_no, risk_tier=RiskTier(record["risk_tier"]),
-                probability=float(record["probability"]), predicted_gpa=None,
+                probability=float(record["probability"]), predicted_gpa=predicted_gpa,
             )
         )
 
