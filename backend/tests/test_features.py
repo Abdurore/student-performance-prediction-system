@@ -6,52 +6,14 @@ self-contained and don't depend on `make seed` having been run first.
 """
 
 import pytest
-from sqlmodel import Session, SQLModel, create_engine
 
-from app.db import seed as seed_module
-from app.models import AcademicHistory, Attendance, Course, Engagement, Enrolment, Student, User
-from ml import preprocessing
 from ml.config import LEAKAGE_FORBIDDEN_COLUMNS
-from ml.data_generator import generate_dataset
 from ml.features import (
     LeakageError,
     assert_no_leakage,
     build_course_score_features,
     build_semester_features,
 )
-
-_LOAD_ORDER = (
-    (User, "users"),
-    (Student, "students"),
-    (Course, "courses"),
-    (Enrolment, "enrolments"),
-    (Attendance, "attendance"),
-    (Engagement, "engagement"),
-    (AcademicHistory, "academic_history"),
-)
-
-
-@pytest.fixture(scope="module")
-def raw_tables(tmp_path_factory):
-    mp = pytest.MonkeyPatch()
-    mp.setattr("ml.data_generator.N_STUDENTS", 80)
-    dataset = generate_dataset(seed=7)
-    mp.undo()
-
-    db_path = tmp_path_factory.mktemp("features_db") / "test.db"
-    engine = create_engine(f"sqlite:///{db_path}")
-    SQLModel.metadata.create_all(engine)
-
-    with Session(engine) as session:
-        for model, table_name in _LOAD_ORDER:
-            seed_module._bulk_insert(session, model, seed_module._records(dataset[table_name], table_name))
-            session.commit()
-
-    mp = pytest.MonkeyPatch()
-    mp.setattr(preprocessing, "engine", engine)
-    tables = preprocessing.load_raw_tables()
-    mp.undo()
-    return tables
 
 
 @pytest.fixture(scope="module")

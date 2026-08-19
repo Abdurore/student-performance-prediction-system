@@ -46,6 +46,11 @@ def seed() -> None:
     run([str(venv_python()), "-m", "scripts.verify_seed"], BACKEND)
 
 
+def train() -> None:
+    """Train all six algorithms for all three tasks and write artefacts/charts."""
+    run([str(venv_python()), "-m", "ml.train"], BACKEND)
+
+
 def dev() -> None:
     """Run both local development servers until the user interrupts the command."""
     backend = subprocess.Popen([str(venv_python()), "-m", "uvicorn", "app.main:app", "--reload"], cwd=BACKEND)
@@ -79,9 +84,12 @@ def main() -> None:
         dev()
     elif command == "seed":
         seed()
+    elif command == "train":
+        train()
     elif command == "demo":
         install()
         seed()
+        train()
         dev()
     else:
         unavailable(command)
