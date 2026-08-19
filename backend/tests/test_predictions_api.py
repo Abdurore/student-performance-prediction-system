@@ -39,9 +39,7 @@ def test_batch_predicted_gpa_is_null_only_for_rows_that_error(api_client, demo_u
     headers = _login(api_client, "role-admin@university.edu.ng")
     ongoing_ids = bulk_risk_scores()["student_id"].tolist()
     # A mix of real ongoing-enrolment students (should succeed) and one
-    # unknown id (should error), rather than student_ids=None -- see the
-    # pre-existing `[s.id for s in select(Student.id)]` bug on that path
-    # noted as an out-of-scope finding at the end of this session.
+    # unknown id (should error).
     requested_ids = ongoing_ids[:5] + [999_999]
 
     response = api_client.post("/api/v1/predictions/batch", headers=headers, json={"student_ids": requested_ids})
@@ -55,3 +53,27 @@ def test_batch_predicted_gpa_is_null_only_for_rows_that_error(api_client, demo_u
             assert row["predicted_gpa"] is not None
         else:
             assert row["predicted_gpa"] is None
+
+
+def test_batch_with_null_student_ids_predicts_for_every_student_as_admin(api_client, demo_users, small_db_engine) -> None:
+    """`student_ids: null` means "predict everyone in scope" per docs/api.md.
+    For an admin (unrestricted scope), that path used to build the id list
+    with `[s.id for s in session.exec(select(Student.id)).all()]` -- but
+    selecting a single column already returns plain ints, not Student rows,
+    so `s.id` raised AttributeError on every call. Asserts the endpoint now
+    succeeds and covers every seeded student rather than a subset.
+    """
+    from sqlmodel import Session, select
+
+    from app.models import Student
+
+    headers = _login(api_client, "role-admin@university.edu.ng")
+
+    response = api_client.post("/api/v1/predictions/batch", headers=headers, json={"student_ids": None})
+    assert response.status_code == 200, response.text
+
+    body = response.json()
+    with Session(small_db_engine) as session:
+        total_students = len(session.exec(select(Student.id)).all())
+    assert body["total_requested"] == total_students
+    assert len(body["results"]) == total_students

@@ -126,7 +126,7 @@ def predict_batch(
     scope = scope_student_ids(session, current_user)
     requested_ids = payload.student_ids
     if requested_ids is None:
-        requested_ids = list(scope) if scope is not None else [s.id for s in session.exec(select(Student.id)).all()]
+        requested_ids = list(scope) if scope is not None else list(session.exec(select(Student.id)).all())
     elif scope is not None:
         requested_ids = [i for i in requested_ids if i in scope]
 

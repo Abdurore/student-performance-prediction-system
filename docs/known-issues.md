@@ -9,6 +9,21 @@ _Nothing currently open — see "Fixed during finalization" below._
 
 ## Fixed during finalization
 
+- **`POST /predictions/batch` 500'd on `student_ids: null` as admin.**
+  `docs/api.md` documents `student_ids: null` as "predict everyone in
+  scope." For an admin (unrestricted scope), that path built the id list
+  with `[s.id for s in session.exec(select(Student.id)).all()]` — but
+  selecting a single column already returns plain ints, not `Student` rows,
+  so `s.id` raised `AttributeError` on every call. First flagged during the
+  three fixes above as an out-of-scope finding (the UI never sends `null`,
+  so it wasn't a demo-day risk), then fixed on request since it's a
+  documented, one-line-fix crash rather than genuine scope creep. Changed
+  to `list(session.exec(select(Student.id)).all())`. Verified with a test
+  that calls the endpoint with `student_ids: null` as admin and asserts it
+  succeeds and covers every seeded student
+  (`test_batch_with_null_student_ids_predicts_for_every_student_as_admin`
+  in `tests/test_predictions_api.py`).
+
 - **Frontend now has a working ESLint config.** Added `typescript-eslint`,
   `eslint-plugin-react-hooks`, and `eslint-plugin-react-refresh` as
   devDependencies and a TypeScript-aware `frontend/eslint.config.js`
