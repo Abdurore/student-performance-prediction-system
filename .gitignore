@@ -19,6 +19,10 @@ __pycache__/
 student_performance.db
 backend/ml/artifacts/*
 !backend/ml/artifacts/.gitkeep
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
 
 # Editor directories and files
 .vscode/*
