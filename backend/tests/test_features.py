@@ -12,6 +12,7 @@ from ml.features import (
     LeakageError,
     assert_no_leakage,
     build_course_score_features,
+    build_prediction_features,
     build_semester_features,
 )
 
@@ -90,3 +91,29 @@ def test_first_semester_students_have_no_prior_history_signal(semester_features)
     first_semester_mask = X["semesters_completed"] == 0
     assert first_semester_mask.any()
     assert X.loc[first_semester_mask, "prior_cgpa"].isna().all()
+
+
+@pytest.fixture(scope="module")
+def prediction_features(raw_tables):
+    return build_prediction_features(raw_tables)
+
+
+def test_prediction_features_same_columns_as_training(semester_features, prediction_features) -> None:
+    X_train, _y, _meta = semester_features
+    X_pred, meta_pred = prediction_features
+    assert list(X_pred.columns) == list(X_train.columns)
+    assert list(meta_pred.columns) == ["student_id", "session", "semester"]
+
+
+def test_prediction_features_pass_the_leakage_guard(prediction_features) -> None:
+    X_pred, _meta = prediction_features
+    assert_no_leakage(X_pred, "risk_classification")
+    assert_no_leakage(X_pred, "gpa_regression")
+
+
+def test_prediction_features_one_row_per_active_student(raw_tables, prediction_features) -> None:
+    _X_pred, meta_pred = prediction_features
+    students = raw_tables["students"]
+    active_ids = set(students.loc[students["is_active"].astype(bool), "id"])
+    assert set(meta_pred["student_id"]) <= active_ids
+    assert meta_pred["student_id"].is_unique

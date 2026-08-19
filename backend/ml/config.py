@@ -75,3 +75,21 @@ REGRESSION_PARAM_GRIDS: Final[dict[str, dict]] = {
     "svm": {"model__C": [1.0, 10.0]},
     "mlp": {"model__hidden_layer_sizes": [(32,), (64, 32)], "model__alpha": [0.0001, 0.001]},
 }
+
+# --- Phase 5: serving ---
+
+# Section G's four-tier risk banding of T1's predicted probability.
+RISK_TIER_THRESHOLDS: Final[tuple[tuple[str, float], ...]] = (
+    ("critical", 0.75),
+    ("high", 0.50),
+    ("moderate", 0.25),
+    ("low", 0.0),
+)
+
+
+def risk_tier_for_probability(probability: float) -> str:
+    """Map a T1 probability to its risk tier, per RISK_TIER_THRESHOLDS."""
+    for tier, lower_bound in RISK_TIER_THRESHOLDS:
+        if probability >= lower_bound:
+            return tier
+    return "low"

@@ -97,6 +97,55 @@ _TASK_DIRECTION_WORDS: dict[str, tuple[str, str]] = {
     "course_score": ("raising the predicted score", "lowering the predicted score"),
 }
 
+# Section I's student-facing ethical constraint: a student's own explanation
+# panel shows only factors they can act on (effort/engagement), never fixed
+# attributes (entry score, prior CGPA, employment status, demographics) --
+# and never states a bare "predicted to fail". This must be enforced here,
+# server-side, not left to the frontend to hide fields it still received.
+STUDENT_MODIFIABLE_FEATURES: frozenset[str] = frozenset(
+    {
+        "mean_attendance_rate", "min_attendance_rate", "attendance_std_dev", "courses_below_75_percent",
+        "attendance_rate", "submission_rate", "punctuality_rate", "study_hours_per_week",
+        "tutorial_attendance_rate", "study_hours_per_credit_load", "library_visits_normalised",
+        "lms_logins_normalised", "ca_average", "ca_to_max_ratio", "lowest_ca_score",
+        "ca_std_dev_across_courses", "courses_below_ca_threshold", "attendance_x_ca_average",
+        "attendance_x_ca_score", "ca_score",
+    }
+)
+
+
+def filter_to_modifiable_contributors(contributors: list[dict], top_n: int = TOP_N_CONTRIBUTORS) -> list[dict]:
+    """Keep only student-actionable factors, re-ranked and re-numbered."""
+    modifiable = [c for c in contributors if c["feature"] in STUDENT_MODIFIABLE_FEATURES]
+    modifiable = sorted(modifiable, key=lambda c: -abs(c["shap_value"]))[:top_n]
+    for rank, contributor in enumerate(modifiable, start=1):
+        contributor = contributor.copy()
+        contributor["rank"] = rank
+        modifiable[rank - 1] = contributor
+    return modifiable
+
+
+def render_student_sentences(contributors: list[dict], task: str) -> list[str]:
+    """Forward-looking, non-alarmist phrasing for a student's own explanation panel.
+
+    Never states a bare outcome ("you are predicted to fail"); always frames
+    a factor as something to act on or a strength to keep, per Section I.
+    """
+    sentences = []
+    for contributor in contributors:
+        name = contributor["feature"]
+        label, unit = FEATURE_METADATA.get(name, (name.replace("_", " "), "generic"))
+        formatted_value = _format_value(unit, contributor["raw_value"])
+        shap_value = contributor["shap_value"]
+        harmful = shap_value > 0 if task == "risk_classification" else shap_value < 0
+        if harmful:
+            sentences.append(
+                f"Improving your {label} (currently {formatted_value}) would help going forward."
+            )
+        else:
+            sentences.append(f"Your {label} of {formatted_value} is a strength -- keep it up.")
+    return sentences
+
 
 def _format_value(unit: str, value: object) -> str:
     if value is None or (isinstance(value, float) and pd.isna(value)):
@@ -120,7 +169,7 @@ def _format_value(unit: str, value: object) -> str:
     return f"{float(value):.2f}"
 
 
-def _load_active_pipeline(task: str) -> tuple[object, str]:
+def load_active_pipeline(task: str) -> tuple[object, str]:
     """Load the joblib artifact for a task's currently-active model_registry row."""
     with Session(engine) as session:
         row = session.exec(
@@ -267,7 +316,7 @@ def explain_student(student_id: int, task: str = "risk_classification", top_n: i
     X, _y, meta = build_semester_features(raw)
     row_index = _latest_row_for_student(X, meta, student_id)
 
-    pipeline, algorithm = _load_active_pipeline(task)
+    pipeline, algorithm = load_active_pipeline(task)
     background = X.sample(n=min(BACKGROUND_SAMPLE_SIZE, len(X)), random_state=42)
     explain_row = X.loc[[row_index]]
 
@@ -295,7 +344,7 @@ def explain_enrolment(student_id: int, course_id: int, top_n: int = TOP_N_CONTRI
         raise ValueError(f"No completed enrolment found for student_id={student_id}, course_id={course_id}.")
     row_index = meta.loc[mask].index[-1]
 
-    pipeline, algorithm = _load_active_pipeline("course_score")
+    pipeline, algorithm = load_active_pipeline("course_score")
     background = X.sample(n=min(BACKGROUND_SAMPLE_SIZE, len(X)), random_state=42)
     explain_row = X.loc[[row_index]]
 
@@ -324,7 +373,7 @@ def global_feature_importance(task: str, sample_size: int = BACKGROUND_SAMPLE_SI
 
     rng_sample = X.sample(n=min(sample_size, len(X)), random_state=42)
     background = X.sample(n=min(sample_size, len(X)), random_state=7)
-    pipeline, _algorithm = _load_active_pipeline(task)
+    pipeline, _algorithm = load_active_pipeline(task)
 
     shap_values = compute_shap_values(pipeline, background, rng_sample, task_kind)
     mean_abs = np.abs(shap_values).mean(axis=0)
